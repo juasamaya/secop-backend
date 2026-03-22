@@ -1,12 +1,18 @@
-import pandas as pd
 import requests
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+# Quitamos los imports pesados de aquí arriba
 
 def analizar_contratos_secop(
     departamento=None, ciudad=None, entidad=None, busqueda=None,
     umbral_corbatas=2, umbral_fraccionamiento=2, umbral_valor=40000000
 ):
+    # =======================================================
+    # TRUCO DE LAZY LOADING: Cargamos la IA solo cuando la piden
+    # Esto hace que FastAPI arranque en 0.1 segundos y no se caiga Render
+    # =======================================================
+    import pandas as pd
+    from sklearn.ensemble import IsolationForest
+    from sklearn.preprocessing import LabelEncoder, StandardScaler
+
     try:
         url = "https://www.datos.gov.co/resource/jbjy-vk9h.json"
         
@@ -43,36 +49,30 @@ def analizar_contratos_secop(
         df['motivo_alerta'] = ''
 
         # 2. CAPA HEURÍSTICA (Reglas)
-        # Corbatas
         corbatas = df[df['tipo_de_contrato'].str.contains('Prestación', case=False, na=False)].groupby('documento_proveedor').agg(num_contratos=('id_contrato', 'count')).reset_index()
         prov_corbatas = corbatas[corbatas['num_contratos'] >= umbral_corbatas]['documento_proveedor'].tolist()
         mask_corbatas = df['documento_proveedor'].isin(prov_corbatas) & df['tipo_de_contrato'].str.contains('Prestación', case=False, na=False)
         df.loc[mask_corbatas, 'score_humano'] += 40
         df.loc[mask_corbatas, 'motivo_alerta'] += f'🚩 Corbata: >{umbral_corbatas - 1} Contratos. '
 
-        # Fraccionamiento
         fracc = df[df['modalidad_de_contratacion'].str.contains('Directa', case=False, na=False)].groupby(['nombre_entidad', 'documento_proveedor']).agg(num_contratos_directos=('id_contrato', 'count')).reset_index()
         prov_fracc = fracc[fracc['num_contratos_directos'] >= umbral_fraccionamiento]['documento_proveedor'].tolist()
         mask_fracc = df['documento_proveedor'].isin(prov_fracc) & df['modalidad_de_contratacion'].str.contains('Directa', case=False, na=False)
         df.loc[mask_fracc, 'score_humano'] += 40
         df.loc[mask_fracc, 'motivo_alerta'] += f'🚩 Fraccionamiento. '
 
-        # Valor Directo
         mask_valor = df['modalidad_de_contratacion'].str.contains('Directa', case=False, na=False) & (df['valor_del_contrato'] > umbral_valor)
         df.loc[mask_valor, 'score_humano'] += 30
         df.loc[mask_valor, 'motivo_alerta'] += f'🚩 Contrato Directo > {umbral_valor // 1000000}M. '
 
-        # Retrasos
         mask_retrasos = (df['dias_adicionados'] > 180)
         df.loc[mask_retrasos, 'score_humano'] += 50
         df.loc[mask_retrasos, 'motivo_alerta'] += '🚨 Retrasos críticos (>180 días). '
         
-        # Consorcios
         mask_consorcio = df['proveedor_adjudicado'].str.contains('CONSORCIO|UNION TEMPORAL', case=False, na=False) & (df['valor_del_contrato'] > 500000000)
         df.loc[mask_consorcio, 'score_humano'] += 20
         df.loc[mask_consorcio, 'motivo_alerta'] += '⚠️ Consorcio Multimillonario. '
 
-        # NUEVO: Opacidad (Nombres Ocultos multimillonarios)
         mask_opacidad = df['proveedor_adjudicado'].str.contains('XXXX|SIN DESCRIPCION', case=False, na=False) & (df['valor_del_contrato'] > 100000000)
         df.loc[mask_opacidad, 'score_humano'] += 30
         df.loc[mask_opacidad, 'motivo_alerta'] += '🕵️‍♂️ Contratista Anónimo (>100M). '
@@ -89,7 +89,7 @@ def analizar_contratos_secop(
             datos_normalizados = scaler.fit_transform(df_ia[columnas_para_ia])
             
             modelo = IsolationForest(contamination=0.05, random_state=42)
-            df_ia['is_anomalia'] = modelo.fit_predict(datos_normalizados) # <-- Corregido
+            df_ia['is_anomalia'] = modelo.fit_predict(datos_normalizados)
             df_ia['score_anomalia_ia'] = modelo.decision_function(datos_normalizados)
             
             min_score = df_ia['score_anomalia_ia'].min()
