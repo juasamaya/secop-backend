@@ -21,33 +21,29 @@ app.add_middleware(
 
 @app.get("/api/alertas")
 async def obtener_alertas(
-    # --- LLAVE DE SEGURIDAD ---
     api_key: Optional[str] = Header(None, alias="api-key"),
-    
     departamento: Optional[str] = None,
     ciudad: Optional[str] = None,
     entidad: Optional[str] = None,
     busqueda: Optional[str] = None,
+    anio: Optional[int] = None,
     umbral_corbatas: int = 2,
     umbral_fraccionamiento: int = 2,
     umbral_valor: int = 40000000,
     pagina: int = 1,
     limite: int = 10
 ):
-    # 1. Validación de Seguridad por Variables de Entorno
-    # Busca 'API_SECRET_KEY' en el servidor. Si no la encuentra (ej. en tu local), usa la de prueba.
     TOKEN_SECRETO = os.getenv("API_SECRET_KEY", "RADAR_SECOP_PRO")
     
     if api_key != TOKEN_SECRETO:
         raise HTTPException(status_code=401, detail="Acceso denegado. Clave de investigación incorrecta o ausente.")
 
-    # 2. Ejecución del Motor
     datos_procesados = analizar_contratos_secop(
-        departamento=departamento, ciudad=ciudad, entidad=entidad, busqueda=busqueda,
+        departamento=departamento, ciudad=ciudad, entidad=entidad, 
+        busqueda=busqueda, anio=anio,
         umbral_corbatas=umbral_corbatas, umbral_fraccionamiento=umbral_fraccionamiento, umbral_valor=umbral_valor
     )
     
-    # 3. Paginación Matemática
     total_alertas = len(datos_procesados)
     total_paginas = math.ceil(total_alertas / limite) if total_alertas > 0 else 1
     
@@ -58,7 +54,6 @@ async def obtener_alertas(
     fin = inicio + limite
     datos_paginados = datos_procesados[inicio:fin]
     
-    # 4. Respuesta Estructurada
     return {
         "metadata": {
             "total_alertas": total_alertas,
@@ -69,7 +64,8 @@ async def obtener_alertas(
         "parametros_usados": {
             "umbral_corbatas": umbral_corbatas,
             "umbral_fraccionamiento": umbral_fraccionamiento,
-            "umbral_valor": umbral_valor
+            "umbral_valor": umbral_valor,
+            "anio": anio
         },
         "datos": datos_paginados
     }
