@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from inyector_grafos import MotorGrafos
 
 def analizar_contratos_secop(
     departamento=None, ciudad=None, entidad=None, busqueda=None, anio=None,
