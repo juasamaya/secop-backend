@@ -1,8 +1,16 @@
 from neo4j import GraphDatabase
 import pandas as pd
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+USUARIO = os.getenv("NEO4J_USERNAME", "neo4j")
+CLAVE = os.getenv("NEO4J_PASSWORD", "#Clave1234")
 
 class MotorGrafos:
-    def __init__(self, uri="bolt://localhost:7687", user="neo4j", password="#Clave1234"):
+    def __init__(self, uri=URI, user=USUARIO, password=CLAVE):
         # Asegúrate de poner tu password real aquí
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
 

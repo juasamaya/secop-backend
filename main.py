@@ -11,6 +11,14 @@ from services import analizar_contratos_secop
 from ingestor_pep_csv import IngestorCSVForense 
 # Importamos tu inyector de grafos para guardar solo la página actual
 from inyector_grafos import MotorGrafos
+from dotenv import load_dotenv
+
+load_dotenv()
+
+URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+USUARIO = os.getenv("NEO4J_USERNAME", "neo4j")
+CLAVE = os.getenv("NEO4J_PASSWORD", "#Clave1234")
+API_KEY =os.getenv("API_KEY")
 
 app = FastAPI(title="Radar SECOP API Forense")
 
@@ -26,6 +34,9 @@ def obtener_alertas(
     x_api_key: Optional[str] = Header(None)
 ):
     try:
+        if x_api_key != "RadarSecop2026!": 
+            raise HTTPException(status_code=401, detail="No autorizado")
+        
         resultados_completos = analizar_contratos_secop(
             departamento=departamento, ciudad=ciudad, entidad=entidad,
             busqueda=busqueda, anio=anio, umbral_corbatas=umbral_corbatas,
@@ -43,7 +54,7 @@ def obtener_alertas(
         # ==========================================
         if len(datos_paginados) > 0:
             try:
-                motor = MotorGrafos(uri="bolt://localhost:7687", user="neo4j", password="#Clave1234")
+                motor = MotorGrafos(uri=URI, user=USUARIO, password=CLAVE)
                 motor.sincronizar_dataframe(pd.DataFrame(datos_paginados))
                 motor.close()
                 print(f"🕷️ Inyectados {len(datos_paginados)} contratos (Página {pagina}) en Neo4j.")
@@ -65,7 +76,7 @@ async def cargar_archivo_pep(file: UploadFile = File(...)):
         with open(ruta_temp, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        ingestor = IngestorCSVForense(uri="bolt://localhost:7687", user="neo4j", password="#Clave1234")
+        ingestor = IngestorCSVForense(uri=URI, user=USUARIO, password=CLAVE)
         ingestor.iniciar_ingesta_masiva(ruta_temp)
         ingestor.close()
         
@@ -78,7 +89,7 @@ async def cargar_archivo_pep(file: UploadFile = File(...)):
 @app.get("/api/alertas/forense/contrato/{id_contrato}")
 def obtener_red_contrato(id_contrato: str):
     try:
-        driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "#Clave1234"))
+        driver = GraphDatabase.driver(URI, auth=(USUARIO, CLAVE))
         
         # ==========================================
         # SOLUCIÓN DE SPAM: CONSULTA AGNÓSTICA (Sin nombres de flechas)

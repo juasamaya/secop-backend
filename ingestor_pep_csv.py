@@ -1,12 +1,13 @@
 import pandas as pd
 from neo4j import GraphDatabase
+from dotenv import load_dotenv
+import os
 
-# ==========================================
-# CREDENCIALES NEO4J
-# ==========================================
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "#Clave1234" # Tu clave real
+load_dotenv()
+
+URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+USUARIO = os.getenv("NEO4J_USERNAME", "neo4j")
+CLAVE = os.getenv("NEO4J_PASSWORD", "#Clave1234")
 
 class IngestorCSVForense:
     def __init__(self, uri, user, password):
@@ -100,8 +101,8 @@ class IngestorCSVForense:
         print(f"🚀 Iniciando lectura del archivo masivo: {ruta_archivo}")
         
         try:
-            # Usamos read_excel y apuntamos a la pestaña exacta
-            df = pd.read_excel(ruta_archivo, sheet_name='DECLARACIONES_PEP', dtype=str, engine='openpyxl')
+            # CAMBIO CLAVE: sheet_name=0 asegura que siempre lea la primera pestaña, sin importar el nombre
+            df = pd.read_excel(ruta_archivo, sheet_name=0, dtype=str, engine='openpyxl')
             total_filas = len(df)
             print(f"📊 ¡Archivo Excel cargado con {total_filas} declaraciones de funcionarios públicos!")
         except Exception as e:
@@ -123,5 +124,5 @@ if __name__ == "__main__":
     # RUTA EXACTA A TU ARCHIVO EXCEL
     ARCHIVO_EXCEL = "DECLARACION_PEP.xlsx"
     
-    ingestor = IngestorCSVForense(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+    ingestor = IngestorCSVForense(URI, USUARIO, CLAVE)
     ingestor.iniciar_ingesta_masiva(ARCHIVO_EXCEL)
