@@ -34,7 +34,7 @@ def obtener_alertas(
     x_api_key: Optional[str] = Header(None)
 ):
     try:
-        if x_api_key != "RadarSecop2026!": 
+        if x_api_key != API_KEY: 
             raise HTTPException(status_code=401, detail="No autorizado")
         
         resultados_completos = analizar_contratos_secop(
@@ -66,7 +66,11 @@ def obtener_alertas(
             "metadata": { "total_alertas": total_alertas, "pagina_actual": pagina, "total_paginas": total_paginas }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error procesando los contratos en el servidor.")
+        import traceback
+        error_real = traceback.format_exc()
+        print(f"🔥 ERROR FATAL: {error_real}")
+        # Ahora Python le enviará el error exacto a Angular
+        raise HTTPException(status_code=500, detail=f"Falló Python: {str(e)}")
 
 
 @app.post("/api/alertas/forense/cargar-pep")
